@@ -1,4 +1,4 @@
-import ldap from "ldapjs";
+import ldap, { type Client, type SearchEntry, type SearchResponse } from "ldapjs";
 import { LdapAuthProvider } from "@proodos/application/Interfaces/ILdapAuthProvider";
 
 const buildUserDn = (template: string, username: string): string =>
@@ -42,9 +42,9 @@ export class LdapAuthProviderService implements LdapAuthProvider {
     return this.bindClient(client, userDn, password);
   }
 
-  private bindClient(client: ldap.Client, dn: string, password: string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      client.bind(dn, password, (err) => {
+  private bindClient(client: Client, dn: string, password: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      client.bind(dn, password, (err: Error | null) => {
         client.unbind();
 
         if (err) {
@@ -58,7 +58,7 @@ export class LdapAuthProviderService implements LdapAuthProvider {
   }
 
   private findUserDn(
-    client: ldap.Client,
+    client: Client,
     baseDn: string,
     attribute: string,
     username: string
@@ -70,7 +70,7 @@ export class LdapAuthProviderService implements LdapAuthProvider {
         attributes: ["dn"],
       };
 
-      client.search(baseDn, opts, (err, res) => {
+      client.search(baseDn, opts, (err: Error | null, res: SearchResponse) => {
         if (err) {
           client.unbind();
           reject(err);
@@ -79,11 +79,11 @@ export class LdapAuthProviderService implements LdapAuthProvider {
 
         let userDn: string | null = null;
 
-        res.on("searchEntry", (entry) => {
+        res.on("searchEntry", (entry: SearchEntry) => {
           userDn = entry.objectName || entry.dn;
         });
 
-        res.on("error", (searchErr) => {
+        res.on("error", (searchErr: Error) => {
           client.unbind();
           reject(searchErr);
         });
