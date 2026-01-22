@@ -31,15 +31,8 @@ export function loadEnv() {
   }
 
   console.log("[ENV] Loaded:", envPath);
-  console.log("[ENV] DB:", {
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    name: process.env.DB_NAME,
-    user: process.env.DB_USER ? "***set***" : "***missing***",
-    pass: process.env.DB_PASSWORD ? "***set***" : "***missing***",
-  });
 
-  const required = ["DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD"];
+  const required = ["DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD", "LDAP_URL", "JWT_SECRET"];
   const missing = required.filter((k) => !process.env[k] || String(process.env[k]).trim() === "");
   if (missing.length) {
     throw new Error(`[ENV] Faltan variables: ${missing.join(", ")} (archivo: ${envPath})`);

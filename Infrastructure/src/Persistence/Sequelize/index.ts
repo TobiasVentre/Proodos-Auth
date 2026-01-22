@@ -1,17 +1,10 @@
-import { sequelize } from "../../Config/SequelizeConfig";
-import * as models from "../Models";
-import { initAssociations } from "./associations";
+import { sequelize } from "@proodos/infrastructure/Config/SequelizeConfig";
+import "@proodos/infrastructure/Persistence/Models";
 
-
-
-export const initModels = async () => {
+export const initializeDatabase = async (): Promise<void> => {
   await sequelize.authenticate();
-  console.log("[DB] authenticate OK");
-  Object.values(models).forEach((m: any) => {
-    if (typeof m.initModel === "function") m.initModel(sequelize);
-  });
 
-  initAssociations();
+  if (String(process.env.DB_SYNC).toLowerCase() === "true") {
+    await sequelize.sync();
+  }
 };
-
-export { sequelize };
