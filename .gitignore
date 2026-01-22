@@ -1,14 +1,25 @@
 # Node
 node_modules/
 **/node_modules/
+*.log
+*.tsbuildinfo
 
 # Build
 dist/
 **/dist/
+build/
+**/build/
+coverage/
+**/coverage/
+.turbo/
+.next/
+.cache/
 
 # Env
 .env
 .env.*
+.env.local
+.env.*.local
 
 # Logs
 npm-debug.log*
