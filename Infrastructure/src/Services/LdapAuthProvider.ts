@@ -80,7 +80,7 @@ export class LdapAuthProviderService implements LdapAuthProvider {
         let userDn: string | null = null;
 
         res.on("searchEntry", (entry: SearchEntry) => {
-          userDn = entry.objectName || entry.dn;
+          userDn = entry.objectName ?? entry.dn ?? null;
         });
 
         res.on("error", (searchErr: Error) => {
