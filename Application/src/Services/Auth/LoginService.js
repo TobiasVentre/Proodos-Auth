@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LoginService = void 0;
 const AuthError_1 = require("@proodos/application/Errors/AuthError");
 class LoginService {
+    ldapAuthProvider;
+    userRoleRepository;
     constructor(ldapAuthProvider, userRoleRepository) {
         this.ldapAuthProvider = ldapAuthProvider;
         this.userRoleRepository = userRoleRepository;

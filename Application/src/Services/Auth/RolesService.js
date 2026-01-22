@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RolesService = void 0;
 class RolesService {
+    roleRepository;
+    userRoleRepository;
     constructor(roleRepository, userRoleRepository) {
         this.roleRepository = roleRepository;
         this.userRoleRepository = userRoleRepository;

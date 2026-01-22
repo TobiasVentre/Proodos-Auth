@@ -1,4 +1,5 @@
-import ldap, { type Client, type SearchCallbackResponse, type SearchEntry } from "ldapjs";
+import ldap from "ldapjs";
+import type { Client, SearchEntry, SearchOptions, SearchCallbackResponse } from "ldapjs";
 import { LdapAuthProvider } from "@proodos/application/Interfaces/ILdapAuthProvider";
 
 const buildUserDn = (template: string, username: string): string =>
@@ -6,23 +7,33 @@ const buildUserDn = (template: string, username: string): string =>
 
 export class LdapAuthProviderService implements LdapAuthProvider {
   async authenticate(username: string, password: string): Promise<boolean> {
-    if (!password) {
-      return false;
-    }
+    if (!password) return false;
 
     const url = process.env.LDAP_URL;
-    if (!url) {
-      throw new Error("LDAP_URL no configurado.");
-    }
+    if (!url) throw new Error("LDAP_URL no configurado.");
 
-    const client = ldap.createClient({ url });
     const userDnTemplate = process.env.LDAP_USER_DN_TEMPLATE;
 
+    // Caso 1: DN directo por template -> bind como usuario
     if (userDnTemplate) {
       const userDn = buildUserDn(userDnTemplate, username);
-      return this.bindClient(client, userDn, password);
+
+      const client = ldap.createClient({ url });
+      try {
+        await this.bind(client, userDn, password);
+        return true;
+      } catch {
+        return false;
+      } finally {
+        try {
+          client.unbind();
+        } catch {
+          // noop
+        }
+      }
     }
 
+    // Caso 2: Bind de servicio + search del DN + bind como usuario
     const bindDn = process.env.LDAP_BIND_DN;
     const bindPassword = process.env.LDAP_BIND_PASSWORD;
     const baseDn = process.env.LDAP_BASE_DN;
@@ -32,27 +43,49 @@ export class LdapAuthProviderService implements LdapAuthProvider {
       throw new Error("LDAP_BIND_DN, LDAP_BIND_PASSWORD y LDAP_BASE_DN son obligatorios.");
     }
 
-    await this.bindClient(client, bindDn, bindPassword);
+    // 2.a) Cliente para búsqueda
+    const searchClient = ldap.createClient({ url });
+    let userDn: string | null = null;
 
-    const userDn = await this.findUserDn(client, baseDn, userAttribute, username);
-    if (!userDn) {
+    try {
+      await this.bind(searchClient, bindDn, bindPassword);
+      userDn = await this.findUserDn(searchClient, baseDn, userAttribute, username);
+    } catch {
       return false;
+    } finally {
+      try {
+        searchClient.unbind();
+      } catch {
+        // noop
+      }
     }
 
-    return this.bindClient(client, userDn, password);
+    if (!userDn) return false;
+
+    // 2.b) Cliente separado para bind del usuario (más robusto)
+    const userClient = ldap.createClient({ url });
+    try {
+      await this.bind(userClient, userDn, password);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      try {
+        userClient.unbind();
+      } catch {
+        // noop
+      }
+    }
   }
 
-  private bindClient(client: Client, dn: string, password: string): Promise<boolean> {
-    return new Promise((resolve) => {
+  private bind(client: Client, dn: string, password: string): Promise<void> {
+    return new Promise((resolve, reject) => {
       client.bind(dn, password, (err: Error | null) => {
-        client.unbind();
-
         if (err) {
-          resolve(false);
+          reject(err);
           return;
         }
-
-        resolve(true);
+        resolve();
       });
     });
   }
@@ -64,15 +97,14 @@ export class LdapAuthProviderService implements LdapAuthProvider {
     username: string
   ): Promise<string | null> {
     return new Promise((resolve, reject) => {
-      const opts = {
-        scope: "sub" as const,
+      const opts: SearchOptions = {
+        scope: "sub",
         filter: `(${attribute}=${username})`,
-        attributes: ["dn"],
+        attributes: ["dn"]
       };
 
       client.search(baseDn, opts, (err: Error | null, res: SearchCallbackResponse) => {
         if (err) {
-          client.unbind();
           reject(err);
           return;
         }
@@ -80,11 +112,13 @@ export class LdapAuthProviderService implements LdapAuthProvider {
         let userDn: string | null = null;
 
         res.on("searchEntry", (entry: SearchEntry) => {
-          userDn = entry.objectName ?? entry.dn ?? null;
+          // Dependiendo del server, a veces viene en objectName, a veces en dn
+          // (y a veces el DN está implícito en entry.dn)
+          // Tu augmentation lo tolera si falta en los types oficiales.
+          userDn = (entry as any).objectName ?? (entry as any).dn ?? null;
         });
 
         res.on("error", (searchErr: Error) => {
-          client.unbind();
           reject(searchErr);
         });
 

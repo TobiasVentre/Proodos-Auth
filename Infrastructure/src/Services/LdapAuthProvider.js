@@ -8,19 +8,33 @@ const ldapjs_1 = __importDefault(require("ldapjs"));
 const buildUserDn = (template, username) => template.replace(/\{\{username\}\}/g, username);
 class LdapAuthProviderService {
     async authenticate(username, password) {
-        if (!password) {
+        if (!password)
             return false;
-        }
         const url = process.env.LDAP_URL;
-        if (!url) {
+        if (!url)
             throw new Error("LDAP_URL no configurado.");
-        }
-        const client = ldapjs_1.default.createClient({ url });
         const userDnTemplate = process.env.LDAP_USER_DN_TEMPLATE;
+        // Caso 1: DN directo por template -> bind como usuario
         if (userDnTemplate) {
             const userDn = buildUserDn(userDnTemplate, username);
-            return this.bindClient(client, userDn, password);
+            const client = ldapjs_1.default.createClient({ url });
+            try {
+                await this.bind(client, userDn, password);
+                return true;
+            }
+            catch {
+                return false;
+            }
+            finally {
+                try {
+                    client.unbind();
+                }
+                catch {
+                    // noop
+                }
+            }
         }
+        // Caso 2: Bind de servicio + search del DN + bind como usuario
         const bindDn = process.env.LDAP_BIND_DN;
         const bindPassword = process.env.LDAP_BIND_PASSWORD;
         const baseDn = process.env.LDAP_BASE_DN;
@@ -28,22 +42,52 @@ class LdapAuthProviderService {
         if (!bindDn || !bindPassword || !baseDn) {
             throw new Error("LDAP_BIND_DN, LDAP_BIND_PASSWORD y LDAP_BASE_DN son obligatorios.");
         }
-        await this.bindClient(client, bindDn, bindPassword);
-        const userDn = await this.findUserDn(client, baseDn, userAttribute, username);
-        if (!userDn) {
+        // 2.a) Cliente para búsqueda
+        const searchClient = ldapjs_1.default.createClient({ url });
+        let userDn = null;
+        try {
+            await this.bind(searchClient, bindDn, bindPassword);
+            userDn = await this.findUserDn(searchClient, baseDn, userAttribute, username);
+        }
+        catch {
             return false;
         }
-        return this.bindClient(client, userDn, password);
+        finally {
+            try {
+                searchClient.unbind();
+            }
+            catch {
+                // noop
+            }
+        }
+        if (!userDn)
+            return false;
+        // 2.b) Cliente separado para bind del usuario (más robusto)
+        const userClient = ldapjs_1.default.createClient({ url });
+        try {
+            await this.bind(userClient, userDn, password);
+            return true;
+        }
+        catch {
+            return false;
+        }
+        finally {
+            try {
+                userClient.unbind();
+            }
+            catch {
+                // noop
+            }
+        }
     }
-    bindClient(client, dn, password) {
-        return new Promise((resolve) => {
+    bind(client, dn, password) {
+        return new Promise((resolve, reject) => {
             client.bind(dn, password, (err) => {
-                client.unbind();
                 if (err) {
-                    resolve(false);
+                    reject(err);
                     return;
                 }
-                resolve(true);
+                resolve();
             });
         });
     }
@@ -52,20 +96,21 @@ class LdapAuthProviderService {
             const opts = {
                 scope: "sub",
                 filter: `(${attribute}=${username})`,
-                attributes: ["dn"],
+                attributes: ["dn"]
             };
             client.search(baseDn, opts, (err, res) => {
                 if (err) {
-                    client.unbind();
                     reject(err);
                     return;
                 }
                 let userDn = null;
                 res.on("searchEntry", (entry) => {
+                    // Dependiendo del server, a veces viene en objectName, a veces en dn
+                    // (y a veces el DN está implícito en entry.dn)
+                    // Tu augmentation lo tolera si falta en los types oficiales.
                     userDn = entry.objectName ?? entry.dn ?? null;
                 });
                 res.on("error", (searchErr) => {
-                    client.unbind();
                     reject(searchErr);
                 });
                 res.on("end", () => {

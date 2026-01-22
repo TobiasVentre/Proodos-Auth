@@ -35,7 +35,7 @@ setupSwagger(app);
 const startServer = async () => {
   app.use("/api", await buildRoutes(logger));
 
-  const PORT = Number(process.env.PORT || 3000);
+  const PORT = Number(process.env.PORT || 3030);
   app.listen(PORT, () => {
     logger.info(`API Running on http://localhost:${PORT}/docs`);
   });
