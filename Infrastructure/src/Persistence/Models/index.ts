@@ -1,9 +1,10 @@
-export { ComponenteModel } from "./ComponenteModel";
-export { LandingPageModel } from "./LandingPageModel";
-export { LandingComponenteModel } from "./LandingComponenteModel";
-export { TipoComponenteModel } from "./TipoComponenteModel";
-export { TipoVariacionModel } from "./TipoVariacionModel";
-export { ElementoComponenteModel } from "./ElementoComponenteModel";
-export { TipoElementoModel } from "./TipoElementoModel";
-export { ComponenteCompuestoModel } from "./ComponenteCompuestoModel";
-export { PlanModel } from "./PlanModel";
+import { RoleModel } from "@proodos/infrastructure/Persistence/Models/RoleModel";
+import { UserRoleModel } from "@proodos/infrastructure/Persistence/Models/UserRoleModel";
+
+RoleModel.hasMany(UserRoleModel, { foreignKey: "roleId", as: "userRoles" });
+UserRoleModel.belongsTo(RoleModel, { foreignKey: "roleId", as: "role" });
+
+export const models = {
+  RoleModel,
+  UserRoleModel,
+};

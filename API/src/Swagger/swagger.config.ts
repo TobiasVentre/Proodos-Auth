@@ -1,42 +1,28 @@
 import swaggerUi from "swagger-ui-express";
 import swaggerJsdoc from "swagger-jsdoc";
 import { Express } from "express";
-import {
-  componenteSchemas,
-  landingSchemas,
-  planSchemas,
-  tipoComponenteSchemas,
-  tipoVariacionSchemas,
-  tipoElementoSchemas,
-  elementoComponenteSchemas
-} from "./schemas";
+import { authSchemas, roleSchemas } from "./schemas";
 
 export function setupSwagger(app: Express): void {
   const options = {
     definition: {
       openapi: "3.0.0",
       info: {
-        title: "Proodos API",
+        title: "Proodos Auth API",
         version: "1.0.0",
-        description: "Documentación de la API del sistema Proodos"
+        description: "Microservicio de autenticación y roles",
       },
       components: {
         schemas: {
-          ...componenteSchemas,
-          ...planSchemas,
-          ...landingSchemas,
-          ...tipoComponenteSchemas,
-          ...tipoVariacionSchemas,
-          ...tipoElementoSchemas,
-          ...elementoComponenteSchemas
-        }
-      }
+          ...authSchemas,
+          ...roleSchemas,
+        },
+      },
     },
-    apis: ["./src/Controllers/*.ts"], 
+    apis: ["./src/Controllers/*.ts"],
   };
 
   const specs = swaggerJsdoc(options);
 
-app.use("/docs", ...swaggerUi.serve, swaggerUi.setup(specs));
-
+  app.use("/docs", ...swaggerUi.serve, swaggerUi.setup(specs));
 }
