@@ -1,4 +1,4 @@
-import ldap, { type Client, type SearchCallbackResponse, type SearchEntry } from "ldapjs";
+import ldap, { type Client, type SearchEntry } from "ldapjs";
 import { LdapAuthProvider } from "@proodos/application/Interfaces/ILdapAuthProvider";
 
 const buildUserDn = (template: string, username: string): string =>
@@ -70,7 +70,7 @@ export class LdapAuthProviderService implements LdapAuthProvider {
         attributes: ["dn"],
       };
 
-      client.search(baseDn, opts, (err: Error | null, res: SearchCallbackResponse) => {
+      client.search(baseDn, opts, (err: Error | null, res: ldap.SearchCallbackResponse) => {
         if (err) {
           client.unbind();
           reject(err);
