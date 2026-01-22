@@ -11,6 +11,7 @@ export const authSchemas = {
     type: "object",
     properties: {
       token: { type: "string" },
+      refreshToken: { type: "string" },
       user: {
         type: "object",
         properties: {
@@ -18,6 +19,19 @@ export const authSchemas = {
           roles: { type: "array", items: { type: "string" } },
         },
       },
+    },
+  },
+  RefreshTokenRequest: {
+    type: "object",
+    properties: {
+      refreshToken: { type: "string" },
+    },
+    required: ["refreshToken"],
+  },
+  RefreshTokenResponse: {
+    type: "object",
+    properties: {
+      token: { type: "string" },
     },
   },
 };
