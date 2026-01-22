@@ -1,5 +1,5 @@
 import { Router } from "express";
-import jwt from "jsonwebtoken";
+import jwt, { type SignOptions } from "jsonwebtoken";
 import { LoginService } from "@proodos/application/Services/Auth/LoginService";
 import { AuthError } from "@proodos/application/Errors/AuthError";
 
@@ -38,9 +38,15 @@ export const createAuthController = ({ loginService }: AuthControllerDeps) => {
       const { username, password } = req.body as { username?: string; password?: string };
       const result = await loginService.execute(username ?? "", password ?? "");
 
-      const secret = process.env.JWT_SECRET as string;
-      const expiresIn = process.env.JWT_EXPIRES_IN || "1h";
-      const token = jwt.sign({ sub: result.username, roles: result.roles }, secret, { expiresIn });
+      const secret = process.env.JWT_SECRET;
+      if (!secret) {
+        return res.status(500).json({ error: true, message: "JWT_SECRET no configurado." });
+      }
+
+      const expiresIn = process.env.JWT_EXPIRES_IN ?? "1h";
+      const token = jwt.sign({ sub: result.username, roles: result.roles }, secret, {
+        expiresIn: expiresIn as SignOptions["expiresIn"],
+      });
 
       return res.status(200).json({
         token,
