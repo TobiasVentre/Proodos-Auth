@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Proodos · Panel de Listados</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Sistema de Gestión Proodos</p>
+        <h1>Panel de listados</h1>
+        <p class="subtitle">
+          Explorá landing pages, componentes y planes en un único lugar.
+        </p>
+      </div>
+      <div class="api-config">
+        <label for="apiBase">API Base URL</label>
+        <div class="api-config__controls">
+          <input
+            id="apiBase"
+            name="apiBase"
+            type="text"
+            placeholder="/api"
+            autocomplete="off"
+          />
+          <button id="reloadData" class="primary-button" type="button">
+            Recargar
+          </button>
+        </div>
+        <p class="helper-text">
+          Usá <strong>/api</strong> para apuntar al backend local.
+        </p>
+      </div>
+    </header>
+
+    <nav class="app-nav">
+      <a href="#landings">Landing pages</a>
+      <a href="#componentes">Componentes</a>
+      <a href="#planes">Planes</a>
+    </nav>
+
+    <main id="app" class="app-main" aria-live="polite"></main>
+
+    <footer class="app-footer">
+      <span>Proodos · Frontend básico</span>
+      <span>HTML · CSS · JS</span>
+    </footer>
+
+    <script type="module" src="js/app.js"></script>
+  </body>
+</html>

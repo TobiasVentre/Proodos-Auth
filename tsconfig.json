@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@proodos/domain/*": ["Domain/src/*"],
+      "@proodos/application/*": ["Application/src/*"],
+      "@proodos/infrastructure/*": ["Infrastructure/src/*"],
+      "@proodos/api/*": ["API/src/*"]
+    },
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true
+  }
+}
+
