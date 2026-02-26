@@ -5,9 +5,32 @@ import { LdapAuthProvider } from "@proodos/application/Interfaces/ILdapAuthProvi
 const buildUserDn = (template: string, username: string): string =>
   template.replace(/\{\{username\}\}/g, username);
 
+const normalizeUsername = (username: string): string => {
+  if (username.includes("\\")) {
+    return username.split("\\").pop() ?? username;
+  }
+
+  if (username.includes("@")) {
+    return username.split("@")[0] ?? username;
+  }
+
+  return username;
+};
+
+const escapeLdapFilterValue = (value: string): string =>
+  value
+    .replace(/\\/g, "\\5c")
+    .replace(/\*/g, "\\2a")
+    .replace(/\(/g, "\\28")
+    .replace(/\)/g, "\\29")
+    .replace(/\0/g, "\\00");
+
 export class LdapAuthProviderService implements LdapAuthProvider {
   async authenticate(username: string, password: string): Promise<boolean> {
     if (!password) return false;
+
+    const normalizedUsername = normalizeUsername(username);
+    const searchUsername = escapeLdapFilterValue(normalizedUsername);
 
     const url = process.env.LDAP_URL;
     if (!url) throw new Error("LDAP_URL no configurado.");
@@ -16,7 +39,7 @@ export class LdapAuthProviderService implements LdapAuthProvider {
 
     // Caso 1: DN directo por template -> bind como usuario
     if (userDnTemplate) {
-      const userDn = buildUserDn(userDnTemplate, username);
+      const userDn = buildUserDn(userDnTemplate, normalizedUsername);
 
       const client = ldap.createClient({ url });
       try {
@@ -40,7 +63,7 @@ export class LdapAuthProviderService implements LdapAuthProvider {
     const userAttribute = process.env.LDAP_USER_ATTRIBUTE || "sAMAccountName";
 
     if (!bindDn || !bindPassword || !baseDn) {
-      throw new Error("LDAP_BIND_DN, LDAP_BIND_PASSWORD y LDAP_BASE_DN son obligatorios.");
+      return false;
     }
 
     // 2.a) Cliente para búsqueda
@@ -49,7 +72,7 @@ export class LdapAuthProviderService implements LdapAuthProvider {
 
     try {
       await this.bind(searchClient, bindDn, bindPassword);
-      userDn = await this.findUserDn(searchClient, baseDn, userAttribute, username);
+      userDn = await this.findUserDn(searchClient, baseDn, userAttribute, searchUsername);
     } catch {
       return false;
     } finally {
