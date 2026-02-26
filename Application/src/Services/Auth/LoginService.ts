@@ -19,6 +19,8 @@ const normalizeUsername = (username: string): string => {
   return username;
 };
 
+const ALLOWED_ROLES = new Set(["admin", "diseñador", "desarrollador"]);
+
 export class LoginService {
   constructor(
     private readonly ldapAuthProvider: LdapAuthProvider,
@@ -37,10 +39,17 @@ export class LoginService {
 
     const normalizedUsername = normalizeUsername(username);
     const roles = await this.userRoleRepository.getRolesByUsername(normalizedUsername);
+    const allowedRoles = roles
+      .map((role) => role.name.trim().toLowerCase())
+      .filter((roleName) => ALLOWED_ROLES.has(roleName));
+
+    if (allowedRoles.length === 0) {
+      throw new AuthError("Usuario sin roles asignados.");
+    }
 
     return {
       username: normalizedUsername,
-      roles: roles.map((role) => role.name),
+      roles: allowedRoles,
     };
   }
 }
