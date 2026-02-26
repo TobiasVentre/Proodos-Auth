@@ -7,6 +7,20 @@ export interface LoginResult {
   roles: string[];
 }
 
+const normalizeUsername = (username: string): string => {
+  if (username.includes("\\")) {
+    return username.split("\\").pop() ?? username;
+  }
+
+  if (username.includes("@")) {
+    return username.split("@")[0] ?? username;
+  }
+
+  return username;
+};
+
+const ALLOWED_ROLES = new Set(["admin", "diseñador", "desarrollador"]);
+
 export class LoginService {
   constructor(
     private readonly ldapAuthProvider: LdapAuthProvider,
@@ -23,11 +37,19 @@ export class LoginService {
       throw new AuthError("Credenciales inválidas.");
     }
 
-    const roles = await this.userRoleRepository.getRolesByUsername(username);
+    const normalizedUsername = normalizeUsername(username);
+    const roles = await this.userRoleRepository.getRolesByUsername(normalizedUsername);
+    const allowedRoles = roles
+      .map((role) => role.name.trim().toLowerCase())
+      .filter((roleName) => ALLOWED_ROLES.has(roleName));
+
+    if (allowedRoles.length === 0) {
+      throw new AuthError("Usuario sin roles asignados.");
+    }
 
     return {
-      username,
-      roles: roles.map((role) => role.name),
+      username: normalizedUsername,
+      roles: allowedRoles,
     };
   }
 }
