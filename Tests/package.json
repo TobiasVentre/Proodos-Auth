@@ -9,9 +9,10 @@
     "typescript": "^5.0.0"
   },
   "scripts": {
-    "build": "tsc -p . --noEmit",
-    "test": "jest",
-    "test:coverage": "jest --coverage",
-    "test:watch": "jest --watch"
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').rmSync('coverage',{recursive:true,force:true});\"",
+    "build": "tsc -p .",
+    "test": "node -e \"require('jest').run(['--config','jest.config.cjs'])\"",
+    "test:coverage": "node -e \"require('jest').run(['--config','jest.config.cjs','--coverage'])\"",
+    "test:watch": "node -e \"require('jest').run(['--config','jest.config.cjs','--watch'])\""
   }
 }
