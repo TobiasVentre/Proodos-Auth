@@ -46,4 +46,17 @@ export function loadEnv() {
   if (missing.length) {
     throw new Error(`[ENV] Faltan variables: ${missing.join(", ")} (archivo: ${envPath})`);
   }
+
+  const hasDnTemplate = Boolean(process.env.LDAP_USER_DN_TEMPLATE?.trim());
+  const hasServiceBindConfig = [
+    process.env.LDAP_BIND_DN,
+    process.env.LDAP_BIND_PASSWORD,
+    process.env.LDAP_BASE_DN,
+  ].every((value) => Boolean(value?.trim()));
+
+  if (!hasDnTemplate && !hasServiceBindConfig) {
+    throw new Error(
+      "[ENV] Configuración LDAP incompleta: definí LDAP_USER_DN_TEMPLATE o LDAP_BIND_DN + LDAP_BIND_PASSWORD + LDAP_BASE_DN."
+    );
+  }
 }
