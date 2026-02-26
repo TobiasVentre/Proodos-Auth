@@ -5,6 +5,7 @@
   "types": "dist/Server.d.ts",
   "dependencies": {
     "@proodos/application": "1.0.0",
+    "dotenv": "^17.2.3",
     "express": "^4.22.1",
     "jsonwebtoken": "^9.0.2",
     "swagger-jsdoc": "^6.2.8",

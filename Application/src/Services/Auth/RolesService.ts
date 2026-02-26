@@ -30,6 +30,11 @@ export class RolesService {
       throw new Error("El rol es obligatorio.");
     }
 
+    const alreadyAssigned = await this.userRoleRepository.hasRole(username, roleId);
+    if (alreadyAssigned) {
+      throw new Error("El usuario ya tiene asignado este rol.");
+    }
+
     return this.userRoleRepository.assign(username, roleId);
   }
 }

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { RolesService } from "@proodos/application/Services/Auth/RolesService";
+import { authenticateJWT, getAdminRoles, requireAnyRole } from "@proodos/api/Middleware/auth";
 
 interface RolesControllerDeps {
   rolesService: RolesService;
@@ -7,6 +8,9 @@ interface RolesControllerDeps {
 
 export const createRolesController = ({ rolesService }: RolesControllerDeps) => {
   const router = Router();
+  const adminRoles = getAdminRoles();
+
+  router.use(authenticateJWT);
 
   /**
    * @openapi
@@ -15,6 +19,8 @@ export const createRolesController = ({ rolesService }: RolesControllerDeps) => 
    *     summary: Listar roles disponibles.
    *     tags:
    *       - Roles
+   *     security:
+   *       - bearerAuth: []
    *     responses:
    *       200:
    *         description: Lista de roles.
@@ -44,6 +50,8 @@ export const createRolesController = ({ rolesService }: RolesControllerDeps) => 
    *     summary: Crear un rol.
    *     tags:
    *       - Roles
+   *     security:
+   *       - bearerAuth: []
    *     requestBody:
    *       required: true
    *       content:
@@ -54,7 +62,7 @@ export const createRolesController = ({ rolesService }: RolesControllerDeps) => 
    *       201:
    *         description: Rol creado.
    */
-  router.post("/", async (req, res) => {
+  router.post("/", requireAnyRole(adminRoles), async (req, res) => {
     try {
       const { name, description } = req.body as { name?: string; description?: string };
       const role = await rolesService.createRole(name ?? "", description ?? null);
@@ -71,6 +79,8 @@ export const createRolesController = ({ rolesService }: RolesControllerDeps) => 
    *     summary: Asignar un rol a un usuario LDAP.
    *     tags:
    *       - Roles
+   *     security:
+   *       - bearerAuth: []
    *     requestBody:
    *       required: true
    *       content:
@@ -81,7 +91,7 @@ export const createRolesController = ({ rolesService }: RolesControllerDeps) => 
    *       201:
    *         description: Asignación creada.
    */
-  router.post("/assign", async (req, res) => {
+  router.post("/assign", requireAnyRole(adminRoles), async (req, res) => {
     try {
       const { username, roleId } = req.body as { username?: string; roleId?: number };
       const assignment = await rolesService.assignRole(username ?? "", Number(roleId));

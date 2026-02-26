@@ -18,9 +18,9 @@
   },
   "scripts": {
     "build": "tsc -p .",
-    "db:migrate": "sequelize-cli db:migrate",
-    "db:migrate:undo": "sequelize-cli db:migrate:undo",
-    "db:seed": "sequelize-cli db:seed:all",
-    "db:seed:undo": "sequelize-cli db:seed:undo:all"
+    "db:migrate": "npm run build && sequelize-cli db:migrate",
+    "db:migrate:undo": "npm run build && sequelize-cli db:migrate:undo",
+    "db:seed": "npm run build && sequelize-cli db:seed:all",
+    "db:seed:undo": "npm run build && sequelize-cli db:seed:undo:all"
   }
 }
