@@ -7,6 +7,18 @@ export interface LoginResult {
   roles: string[];
 }
 
+const normalizeUsername = (username: string): string => {
+  if (username.includes("\\")) {
+    return username.split("\\").pop() ?? username;
+  }
+
+  if (username.includes("@")) {
+    return username.split("@")[0] ?? username;
+  }
+
+  return username;
+};
+
 export class LoginService {
   constructor(
     private readonly ldapAuthProvider: LdapAuthProvider,
@@ -23,10 +35,11 @@ export class LoginService {
       throw new AuthError("Credenciales inválidas.");
     }
 
-    const roles = await this.userRoleRepository.getRolesByUsername(username);
+    const normalizedUsername = normalizeUsername(username);
+    const roles = await this.userRoleRepository.getRolesByUsername(normalizedUsername);
 
     return {
-      username,
+      username: normalizedUsername,
       roles: roles.map((role) => role.name),
     };
   }
