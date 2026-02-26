@@ -11,8 +11,8 @@
   "scripts": {
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true});require('fs').rmSync('coverage',{recursive:true,force:true});\"",
     "build": "tsc -p .",
-    "test": "npm exec -- jest",
-    "test:coverage": "npm exec -- jest --coverage",
-    "test:watch": "npm exec -- jest --watch"
+    "test": "node ./scripts/run-jest.cjs",
+    "test:coverage": "node ./scripts/run-jest.cjs --coverage",
+    "test:watch": "node ./scripts/run-jest.cjs --watch"
   }
 }
