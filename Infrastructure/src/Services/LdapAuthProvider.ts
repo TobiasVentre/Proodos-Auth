@@ -1,9 +1,12 @@
 import ldap from "ldapjs";
-import type { Client, SearchEntry, SearchOptions, SearchCallbackResponse } from "ldapjs";
+import type { Client } from "ldapjs";
 import { LdapAuthProvider } from "@proodos/application/Interfaces/ILdapAuthProvider";
 
-const buildUserDn = (template: string, username: string): string =>
-  template.replace(/\{\{username\}\}/g, username);
+interface LdapTargetConfig {
+  name: string;
+  url: string;
+  upnSuffix: string;
+}
 
 const normalizeUsername = (username: string): string => {
   if (username.includes("\\")) {
@@ -17,36 +20,62 @@ const normalizeUsername = (username: string): string => {
   return username;
 };
 
-const escapeLdapFilterValue = (value: string): string =>
-  value
-    .replace(/\\/g, "\\5c")
-    .replace(/\*/g, "\\2a")
-    .replace(/\(/g, "\\28")
-    .replace(/\)/g, "\\29")
-    .replace(/\0/g, "\\00");
+const readTargetsConfig = (): LdapTargetConfig[] => {
+  const rawTargets = process.env.LDAP_TARGETS;
+  if (!rawTargets) {
+    throw new Error("LDAP_TARGETS no configurado.");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawTargets);
+  } catch {
+    throw new Error("LDAP_TARGETS tiene formato inválido. Debe ser un JSON válido.");
+  }
+
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error("LDAP_TARGETS debe ser un array con al menos un dominio LDAP.");
+  }
+
+  return parsed.map((item, index) => {
+    if (!item || typeof item !== "object") {
+      throw new Error(`LDAP_TARGETS[${index}] debe ser un objeto.`);
+    }
+
+    const { name, url, upnSuffix } = item as Partial<LdapTargetConfig>;
+
+    if (!name || !url || !upnSuffix) {
+      throw new Error(
+        `LDAP_TARGETS[${index}] incompleto. Requiere 'name', 'url' y 'upnSuffix'.`
+      );
+    }
+
+    return {
+      name: name.trim(),
+      url: url.trim(),
+      upnSuffix: upnSuffix.trim(),
+    };
+  });
+};
 
 export class LdapAuthProviderService implements LdapAuthProvider {
   async authenticate(username: string, password: string): Promise<boolean> {
     if (!password) return false;
 
     const normalizedUsername = normalizeUsername(username);
-    const searchUsername = escapeLdapFilterValue(normalizedUsername);
+    const targets = readTargetsConfig();
 
-    const url = process.env.LDAP_URL;
-    if (!url) throw new Error("LDAP_URL no configurado.");
+    for (const target of targets) {
+      const principal = `${normalizedUsername}@${target.upnSuffix}`;
+      const client = ldap.createClient({ url: target.url });
 
-    const userDnTemplate = process.env.LDAP_USER_DN_TEMPLATE;
-
-    // Caso 1: DN directo por template -> bind como usuario
-    if (userDnTemplate) {
-      const userDn = buildUserDn(userDnTemplate, normalizedUsername);
-
-      const client = ldap.createClient({ url });
       try {
-        await this.bind(client, userDn, password);
+        await this.bind(client, principal, password);
         return true;
       } catch {
-        return false;
+        console.warn(
+          `[LDAP] Falló bind en target '${target.name}' (${target.url}) para usuario normalizado '${normalizedUsername}'.`
+        );
       } finally {
         try {
           client.unbind();
@@ -56,49 +85,7 @@ export class LdapAuthProviderService implements LdapAuthProvider {
       }
     }
 
-    // Caso 2: Bind de servicio + search del DN + bind como usuario
-    const bindDn = process.env.LDAP_BIND_DN;
-    const bindPassword = process.env.LDAP_BIND_PASSWORD;
-    const baseDn = process.env.LDAP_BASE_DN;
-    const userAttribute = process.env.LDAP_USER_ATTRIBUTE || "sAMAccountName";
-
-    if (!bindDn || !bindPassword || !baseDn) {
-      return false;
-    }
-
-    // 2.a) Cliente para búsqueda
-    const searchClient = ldap.createClient({ url });
-    let userDn: string | null = null;
-
-    try {
-      await this.bind(searchClient, bindDn, bindPassword);
-      userDn = await this.findUserDn(searchClient, baseDn, userAttribute, searchUsername);
-    } catch {
-      return false;
-    } finally {
-      try {
-        searchClient.unbind();
-      } catch {
-        // noop
-      }
-    }
-
-    if (!userDn) return false;
-
-    // 2.b) Cliente separado para bind del usuario (más robusto)
-    const userClient = ldap.createClient({ url });
-    try {
-      await this.bind(userClient, userDn, password);
-      return true;
-    } catch {
-      return false;
-    } finally {
-      try {
-        userClient.unbind();
-      } catch {
-        // noop
-      }
-    }
+    return false;
   }
 
   private bind(client: Client, dn: string, password: string): Promise<void> {
@@ -109,45 +96,6 @@ export class LdapAuthProviderService implements LdapAuthProvider {
           return;
         }
         resolve();
-      });
-    });
-  }
-
-  private findUserDn(
-    client: Client,
-    baseDn: string,
-    attribute: string,
-    username: string
-  ): Promise<string | null> {
-    return new Promise((resolve, reject) => {
-      const opts: SearchOptions = {
-        scope: "sub",
-        filter: `(${attribute}=${username})`,
-        attributes: ["dn"]
-      };
-
-      client.search(baseDn, opts, (err: Error | null, res: SearchCallbackResponse) => {
-        if (err) {
-          reject(err);
-          return;
-        }
-
-        let userDn: string | null = null;
-
-        res.on("searchEntry", (entry: SearchEntry) => {
-          // Dependiendo del server, a veces viene en objectName, a veces en dn
-          // (y a veces el DN está implícito en entry.dn)
-          // Tu augmentation lo tolera si falta en los types oficiales.
-          userDn = (entry as any).objectName ?? (entry as any).dn ?? null;
-        });
-
-        res.on("error", (searchErr: Error) => {
-          reject(searchErr);
-        });
-
-        res.on("end", () => {
-          resolve(userDn);
-        });
       });
     });
   }

@@ -17,6 +17,38 @@ function findRepoRoot(startDir: string): string {
   }
 }
 
+function validateLdapTargets(rawTargets: string) {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(rawTargets);
+  } catch {
+    throw new Error("[ENV] LDAP_TARGETS tiene formato inválido. Debe ser un JSON válido.");
+  }
+
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error("[ENV] LDAP_TARGETS debe ser un array con al menos un dominio LDAP.");
+  }
+
+  parsed.forEach((target, index) => {
+    if (!target || typeof target !== "object") {
+      throw new Error(`[ENV] LDAP_TARGETS[${index}] debe ser un objeto.`);
+    }
+
+    const { name, url, upnSuffix } = target as {
+      name?: string;
+      url?: string;
+      upnSuffix?: string;
+    };
+
+    if (!name?.trim() || !url?.trim() || !upnSuffix?.trim()) {
+      throw new Error(
+        `[ENV] LDAP_TARGETS[${index}] incompleto. Requiere 'name', 'url' y 'upnSuffix'.`
+      );
+    }
+  });
+}
+
 export function loadEnv() {
   const root = findRepoRoot(process.cwd());
   const envPath = path.join(root, ".env");
@@ -38,7 +70,7 @@ export function loadEnv() {
     "DB_NAME",
     "DB_USER",
     "DB_PASSWORD",
-    "LDAP_URL",
+    "LDAP_TARGETS",
     "JWT_SECRET",
     "JWT_REFRESH_SECRET",
   ];
@@ -47,16 +79,5 @@ export function loadEnv() {
     throw new Error(`[ENV] Faltan variables: ${missing.join(", ")} (archivo: ${envPath})`);
   }
 
-  const hasDnTemplate = Boolean(process.env.LDAP_USER_DN_TEMPLATE?.trim());
-  const hasServiceBindConfig = [
-    process.env.LDAP_BIND_DN,
-    process.env.LDAP_BIND_PASSWORD,
-    process.env.LDAP_BASE_DN,
-  ].every((value) => Boolean(value?.trim()));
-
-  if (!hasDnTemplate && !hasServiceBindConfig) {
-    throw new Error(
-      "[ENV] Configuración LDAP incompleta: definí LDAP_USER_DN_TEMPLATE o LDAP_BIND_DN + LDAP_BIND_PASSWORD + LDAP_BASE_DN."
-    );
-  }
+  validateLdapTargets(process.env.LDAP_TARGETS as string);
 }
