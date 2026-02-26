@@ -17,7 +17,15 @@ const config: Config = {
     "!**/*.d.ts"
   ],
   coverageDirectory: "<rootDir>/Tests/coverage",
-  coverageReporters: ["text", "html", "lcov"]
+  coverageReporters: ["text", "html", "lcov"],
+  coverageThreshold: {
+    global: {
+      branches: 60,
+      functions: 70,
+      lines: 70,
+      statements: 70
+    }
+  }
 };
 
 export default config;
