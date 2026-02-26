@@ -5,7 +5,8 @@
     "Domain",
     "Application",
     "Infrastructure",
-    "API"
+    "API",
+    "Tests"
   ],
   "scripts": {
     "build": "npm run build --workspace Domain && npm run build --workspace Application && npm run build --workspace Infrastructure && npm run build --workspace API",
