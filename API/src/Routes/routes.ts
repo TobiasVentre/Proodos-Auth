@@ -8,7 +8,7 @@ export const buildRoutes = async (logger: ILogger) => {
   const routes = Router();
   const useCases = await buildApiUseCases(logger);
 
-  routes.use("/auth", createAuthController({ loginService: useCases.auth.login }));
+  routes.use("/auth", createAuthController({ loginService: useCases.auth.login, logger }));
   routes.use(
     "/roles",
     createRolesController({

@@ -2,12 +2,26 @@ import { Router } from "express";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { LoginService } from "@proodos/application/Services/Auth/LoginService";
 import { AuthError } from "@proodos/application/Errors/AuthError";
+import { ILogger } from "@proodos/application/Interfaces/ILogger";
 
 interface AuthControllerDeps {
   loginService: LoginService;
+  logger: ILogger;
 }
 
-export const createAuthController = ({ loginService }: AuthControllerDeps) => {
+const getErrorMeta = (error: unknown): Record<string, unknown> => {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+
+  return { error };
+};
+
+export const createAuthController = ({ loginService, logger }: AuthControllerDeps) => {
   const router = Router();
 
   /**
@@ -34,8 +48,16 @@ export const createAuthController = ({ loginService }: AuthControllerDeps) => {
    *         description: Credenciales inválidas.
    */
   router.post("/login", async (req, res) => {
+    const { username, password } = req.body as { username?: string; password?: string };
+    const requestMeta = {
+      username: username ?? "",
+      ip: req.ip,
+      path: req.originalUrl,
+      method: req.method,
+    };
+
     try {
-      const { username, password } = req.body as { username?: string; password?: string };
+      logger.info("Intento de login recibido.", requestMeta);
       const result = await loginService.execute(username ?? "", password ?? "");
 
       const secret = process.env.JWT_SECRET;
@@ -67,9 +89,17 @@ export const createAuthController = ({ loginService }: AuthControllerDeps) => {
       });
     } catch (error) {
       if (error instanceof AuthError) {
+        logger.warn("Login rechazado por regla de autenticación.", {
+          ...requestMeta,
+          reason: error.message,
+        });
         return res.status(401).json({ error: true, message: error.message });
       }
 
+      logger.error("Error interno durante login.", {
+        ...requestMeta,
+        ...getErrorMeta(error),
+      });
       return res.status(500).json({ error: true, message: "Error interno de autenticación." });
     }
   });
@@ -122,6 +152,11 @@ export const createAuthController = ({ loginService }: AuthControllerDeps) => {
 
       return res.status(200).json({ token: newToken });
     } catch (error) {
+      logger.warn("Refresh token inválido o expirado.", {
+        ip: req.ip,
+        path: req.originalUrl,
+        method: req.method,
+      });
       return res.status(401).json({ error: true, message: "Refresh token inválido o expirado." });
     }
   });

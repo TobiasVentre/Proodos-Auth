@@ -72,9 +72,10 @@ export class LdapAuthProviderService implements LdapAuthProvider {
       try {
         await this.bind(client, principal, password);
         return true;
-      } catch {
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "desconocido";
         console.warn(
-          `[LDAP] Falló bind en target '${target.name}' (${target.url}) para usuario normalizado '${normalizedUsername}'.`
+          `[LDAP] Falló bind en target '${target.name}' (${target.url}) para usuario normalizado '${normalizedUsername}'. Motivo: ${reason}`
         );
       } finally {
         try {
