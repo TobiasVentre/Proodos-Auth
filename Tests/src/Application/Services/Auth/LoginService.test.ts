@@ -34,10 +34,8 @@ describe("LoginService", () => {
       hasRole: jest.fn(),
     };
     const service = new LoginService(ldapAuthProvider, userRoleRepository);
-
     // Act
     const action = () => service.execute("jdoe", "bad");
-
     // Assert
     await expect(action()).rejects.toBeInstanceOf(AuthError);
   });

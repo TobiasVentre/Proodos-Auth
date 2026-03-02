@@ -22,7 +22,7 @@
   },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only --require tsconfig-paths/register src/Server.ts",
-    "build": "tsc -p .",
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p .",
     "start": "node dist/Server.js",
     "start:with-coverage": "npm run test:coverage --workspace Tests && npm run start"
   }

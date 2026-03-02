@@ -1,5 +1,6 @@
 import { LoginService } from "@proodos/application/Services/Auth/LoginService";
-import { RolesService } from "@proodos/application/Services/Auth/RolesService";
+import { RoleCommandsService } from "@proodos/application/Services/Auth/RoleCommandsService";
+import { RoleQueriesService } from "@proodos/application/Services/Auth/RoleQueriesService";
 import { ILogger } from "@proodos/application/Interfaces/ILogger";
 import { initializeDatabase } from "@proodos/infrastructure/Persistence/Sequelize";
 import { SequelizeRoleRepository } from "@proodos/infrastructure/Persistence/Repositories/RoleRepository";
@@ -13,11 +14,16 @@ export const buildApiUseCases = async (logger: ILogger) => {
   const roleRepository = new SequelizeRoleRepository();
   const userRoleRepository = new SequelizeUserRoleRepository();
   const ldapAuthProvider = new LdapAuthProviderService();
+  const roleCommands = new RoleCommandsService(roleRepository, userRoleRepository);
+  const roleQueries = new RoleQueriesService(roleRepository);
 
   return {
     auth: {
       login: new LoginService(ldapAuthProvider, userRoleRepository),
     },
-    roles: new RolesService(roleRepository, userRoleRepository),
+    roles: {
+      commands: roleCommands,
+      queries: roleQueries,
+    },
   };
 };

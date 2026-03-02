@@ -2,39 +2,30 @@ import { Role } from "@proodos/domain/Entities/Role";
 import { UserRole } from "@proodos/domain/Entities/UserRole";
 import { RoleRepository } from "@proodos/application/Interfaces/IRoleRepository";
 import { UserRoleRepository } from "@proodos/application/Interfaces/IUserRoleRepository";
+import { RoleCommandsService } from "@proodos/application/Services/Auth/RoleCommandsService";
+import { RoleQueriesService } from "@proodos/application/Services/Auth/RoleQueriesService";
 
 export class RolesService {
+  private readonly commands: RoleCommandsService;
+  private readonly queries: RoleQueriesService;
+
   constructor(
     private readonly roleRepository: RoleRepository,
     private readonly userRoleRepository: UserRoleRepository
-  ) {}
+  ) {
+    this.commands = new RoleCommandsService(this.roleRepository, this.userRoleRepository);
+    this.queries = new RoleQueriesService(this.roleRepository);
+  }
 
   async createRole(name: string, description?: string | null): Promise<Role> {
-    if (!name) {
-      throw new Error("El nombre del rol es obligatorio.");
-    }
-
-    return this.roleRepository.create(name, description);
+    return this.commands.createRole(name, description);
   }
 
   async listRoles(): Promise<Role[]> {
-    return this.roleRepository.list();
+    return this.queries.listRoles();
   }
 
   async assignRole(username: string, roleId: number): Promise<UserRole> {
-    if (!username) {
-      throw new Error("El usuario es obligatorio.");
-    }
-
-    if (!roleId) {
-      throw new Error("El rol es obligatorio.");
-    }
-
-    const alreadyAssigned = await this.userRoleRepository.hasRole(username, roleId);
-    if (alreadyAssigned) {
-      throw new Error("El usuario ya tiene asignado este rol.");
-    }
-
-    return this.userRoleRepository.assign(username, roleId);
+    return this.commands.assignRole(username, roleId);
   }
 }

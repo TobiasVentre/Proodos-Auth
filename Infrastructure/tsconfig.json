@@ -4,6 +4,12 @@
   "compilerOptions": {
     "resolveJsonModule": true,
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "baseUrl": "..",
+    "paths": {
+      "@proodos/infrastructure/*": ["Infrastructure/src/*"],
+      "@proodos/application/*": ["Application/dist/*"],
+      "@proodos/domain/*": ["Domain/dist/*"]
+    }
   }
 }

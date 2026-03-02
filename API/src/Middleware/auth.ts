@@ -44,14 +44,14 @@ export const getAdminRoles = (): string[] => {
   if (!raw) return ["admin"];
   return raw
     .split(",")
-    .map((role) => role.trim())
+    .map((role) => role.trim().toLowerCase())
     .filter((role) => role.length > 0);
 };
 
 export const requireAnyRole =
   (allowedRoles: string[]) => (req: Request, res: Response, next: NextFunction) => {
-    const roles = req.user?.roles ?? [];
-    if (allowedRoles.length === 0 || allowedRoles.some((role) => roles.includes(role))) {
+    const roles = (req.user?.roles ?? []).map((role) => role.toLowerCase());
+    if (allowedRoles.length === 0 || allowedRoles.some((role) => roles.includes(role.toLowerCase()))) {
       return next();
     }
 

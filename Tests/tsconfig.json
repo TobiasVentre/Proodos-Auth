@@ -3,6 +3,13 @@
   "compilerOptions": {
     "rootDir": "..",
     "outDir": "dist",
+    "baseUrl": "..",
+    "paths": {
+      "@proodos/domain/*": ["Domain/src/*"],
+      "@proodos/application/*": ["Application/src/*"],
+      "@proodos/infrastructure/*": ["Infrastructure/src/*"],
+      "@proodos/api/*": ["API/src/*"]
+    },
     "types": [
       "node"
     ]
