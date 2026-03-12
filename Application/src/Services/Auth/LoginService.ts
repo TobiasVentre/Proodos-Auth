@@ -1,25 +1,12 @@
 import { AuthError } from "@proodos/application/Errors/AuthError";
 import { LdapAuthProvider } from "@proodos/application/Interfaces/ILdapAuthProvider";
 import { UserRoleRepository } from "@proodos/application/Interfaces/IUserRoleRepository";
+import { normalizeUsername, resolveAllowedRoles } from "./AuthRoleResolver";
 
 export interface LoginResult {
   username: string;
   roles: string[];
 }
-
-const normalizeUsername = (username: string): string => {
-  if (username.includes("\\")) {
-    return username.split("\\").pop() ?? username;
-  }
-
-  if (username.includes("@")) {
-    return username.split("@")[0] ?? username;
-  }
-
-  return username;
-};
-
-const ALLOWED_ROLES = new Set(["admin", "diseñador", "desarrollador"]);
 
 export class LoginService {
   constructor(
@@ -39,9 +26,7 @@ export class LoginService {
 
     const normalizedUsername = normalizeUsername(username);
     const roles = await this.userRoleRepository.getRolesByUsername(normalizedUsername);
-    const allowedRoles = roles
-      .map((role) => role.name.trim().toLowerCase())
-      .filter((roleName) => ALLOWED_ROLES.has(roleName));
+    const allowedRoles = resolveAllowedRoles(roles);
 
     if (allowedRoles.length === 0) {
       throw new AuthError("Usuario sin roles asignados.");

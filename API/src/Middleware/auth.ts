@@ -1,9 +1,18 @@
 import { type NextFunction, type Request, type Response } from "express";
 import jwt from "jsonwebtoken";
+import {
+  buildAccessTokenVerifyOptions,
+  getAccessTokenSecret,
+  isAccessTokenPayload,
+  normalizeAccessTokenPayload,
+} from "@proodos/api/Security/jwt";
 
 export interface AuthPayload {
-  sub?: string;
-  roles?: string[];
+  sub: string;
+  roles: string[];
+  token_use: "access";
+  iat?: number;
+  exp?: number;
 }
 
 declare global {
@@ -20,19 +29,22 @@ export const authenticateJWT = (req: Request, res: Response, next: NextFunction)
     return res.status(401).json({ error: true, message: "Authorization requerido." });
   }
 
-  const [scheme, token] = header.split(" ");
-  if (scheme !== "Bearer" || !token) {
+  const [scheme, token, ...rest] = header.trim().split(/\s+/);
+  if (scheme !== "Bearer" || !token || rest.length > 0) {
     return res.status(401).json({ error: true, message: "Authorization inválido." });
   }
 
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    return res.status(500).json({ error: true, message: "JWT_SECRET no configurado." });
-  }
-
   try {
-    const payload = jwt.verify(token, secret) as AuthPayload;
-    req.user = payload;
+    const verifiedPayload = jwt.verify(
+      token,
+      getAccessTokenSecret(),
+      buildAccessTokenVerifyOptions()
+    );
+    if (!isAccessTokenPayload(verifiedPayload)) {
+      return res.status(401).json({ error: true, message: "Token inválido o expirado." });
+    }
+
+    req.user = normalizeAccessTokenPayload(verifiedPayload);
     return next();
   } catch {
     return res.status(401).json({ error: true, message: "Token inválido o expirado." });

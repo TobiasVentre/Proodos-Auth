@@ -1,11 +1,27 @@
 import { Router } from "express";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { LoginService } from "@proodos/application/Services/Auth/LoginService";
+import { RefreshTokenService } from "@proodos/application/Services/Auth/RefreshTokenService";
+import { RevokeRefreshTokenService } from "@proodos/application/Services/Auth/RevokeRefreshTokenService";
 import { AuthError } from "@proodos/application/Errors/AuthError";
 import { ILogger } from "@proodos/application/Interfaces/ILogger";
+import {
+  buildExpirationDate,
+  buildAccessTokenSignOptions,
+  buildRefreshTokenSignOptions,
+  buildRefreshTokenVerifyOptions,
+  buildTokenPayload,
+  generateRefreshTokenId,
+  getAccessTokenSecret,
+  getRefreshTokenSecret,
+  isRefreshTokenPayload,
+  normalizeRefreshTokenPayload,
+} from "@proodos/api/Security/jwt";
 
 interface AuthControllerDeps {
   loginService: LoginService;
+  refreshTokenService: RefreshTokenService;
+  revokeRefreshTokenService: RevokeRefreshTokenService;
   logger: ILogger;
 }
 
@@ -21,8 +37,42 @@ const getErrorMeta = (error: unknown): Record<string, unknown> => {
   return { error };
 };
 
-export const createAuthController = ({ loginService, logger }: AuthControllerDeps) => {
+const isJwtValidationError = (error: unknown): boolean =>
+  error instanceof Error &&
+  ["JsonWebTokenError", "TokenExpiredError", "NotBeforeError"].includes(error.name);
+
+export const createAuthController = ({
+  loginService,
+  refreshTokenService,
+  revokeRefreshTokenService,
+  logger,
+}: AuthControllerDeps) => {
   const router = Router();
+  const accessExpiresIn = (process.env.JWT_EXPIRES_IN ?? "60m") as SignOptions["expiresIn"];
+  const refreshExpiresIn = (process.env.JWT_REFRESH_EXPIRES_IN ?? "7d") as SignOptions["expiresIn"];
+
+  const issueAccessToken = (username: string, roles: string[]): string =>
+    jwt.sign(
+      buildTokenPayload(username, roles, "access"),
+      getAccessTokenSecret(),
+      buildAccessTokenSignOptions(accessExpiresIn)
+    );
+
+  const issueRefreshToken = (username: string, roles: string[]) => {
+    const tokenId = generateRefreshTokenId();
+    const issuedAt = new Date();
+
+    return {
+      tokenId,
+      issuedAt,
+      expiresAt: buildExpirationDate(refreshExpiresIn, issuedAt),
+      token: jwt.sign(
+        buildTokenPayload(username, roles, "refresh", tokenId),
+        getRefreshTokenSecret(),
+        buildRefreshTokenSignOptions(refreshExpiresIn)
+      ),
+    };
+  };
 
   /**
    * @openapi
@@ -59,29 +109,18 @@ export const createAuthController = ({ loginService, logger }: AuthControllerDep
     try {
       logger.info("Intento de login recibido.", requestMeta);
       const result = await loginService.execute(username ?? "", password ?? "");
-
-      const secret = process.env.JWT_SECRET;
-      if (!secret) {
-        return res.status(500).json({ error: true, message: "JWT_SECRET no configurado." });
-      }
-
-      const refreshSecret = process.env.JWT_REFRESH_SECRET;
-      if (!refreshSecret) {
-        return res.status(500).json({ error: true, message: "JWT_REFRESH_SECRET no configurado." });
-      }
-
-      const expiresIn = process.env.JWT_EXPIRES_IN ?? "60m";
-      const refreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN ?? "7d";
-      const token = jwt.sign({ sub: result.username, roles: result.roles }, secret, {
-        expiresIn: expiresIn as SignOptions["expiresIn"],
-      });
-      const refreshToken = jwt.sign({ sub: result.username, roles: result.roles }, refreshSecret, {
-        expiresIn: refreshExpiresIn as SignOptions["expiresIn"],
+      const token = issueAccessToken(result.username, result.roles);
+      const refreshToken = issueRefreshToken(result.username, result.roles);
+      await refreshTokenService.registerIssuedToken({
+        tokenId: refreshToken.tokenId,
+        username: result.username,
+        issuedAt: refreshToken.issuedAt,
+        expiresAt: refreshToken.expiresAt,
       });
 
       return res.status(200).json({
         token,
-        refreshToken,
+        refreshToken: refreshToken.token,
         user: {
           username: result.username,
           roles: result.roles,
@@ -133,31 +172,132 @@ export const createAuthController = ({ loginService, logger }: AuthControllerDep
       return res.status(400).json({ error: true, message: "refreshToken requerido." });
     }
 
-    const secret = process.env.JWT_SECRET;
-    const refreshSecret = process.env.JWT_REFRESH_SECRET;
-    if (!secret || !refreshSecret) {
-      return res.status(500).json({ error: true, message: "JWT_SECRET/JWT_REFRESH_SECRET no configurado." });
-    }
-
     try {
-      const payload = jwt.verify(refreshToken, refreshSecret) as { sub?: string; roles?: string[] };
-      if (!payload?.sub) {
+      const verifiedPayload = jwt.verify(
+        refreshToken,
+        getRefreshTokenSecret(),
+        buildRefreshTokenVerifyOptions()
+      );
+      if (!isRefreshTokenPayload(verifiedPayload)) {
         return res.status(401).json({ error: true, message: "Refresh token inválido." });
       }
 
-      const expiresIn = process.env.JWT_EXPIRES_IN ?? "60m";
-      const newToken = jwt.sign({ sub: payload.sub, roles: payload.roles ?? [] }, secret, {
-        expiresIn: expiresIn as SignOptions["expiresIn"],
+      const payload = normalizeRefreshTokenPayload(verifiedPayload);
+      const refreshedUser = await refreshTokenService.resolveRefreshContext({
+        username: payload.sub,
+        tokenId: payload.jti,
+      });
+      const newToken = issueAccessToken(refreshedUser.username, refreshedUser.roles);
+      const newRefreshToken = issueRefreshToken(refreshedUser.username, refreshedUser.roles);
+
+      await refreshTokenService.rotate({
+        username: refreshedUser.username,
+        currentTokenId: payload.jti,
+        nextTokenId: newRefreshToken.tokenId,
+        nextIssuedAt: newRefreshToken.issuedAt,
+        nextExpiresAt: newRefreshToken.expiresAt,
       });
 
-      return res.status(200).json({ token: newToken });
+      return res.status(200).json({ token: newToken, refreshToken: newRefreshToken.token });
     } catch (error) {
-      logger.warn("Refresh token inválido o expirado.", {
+      if (error instanceof AuthError) {
+        logger.warn("Refresh token rechazado.", {
+          ip: req.ip,
+          path: req.originalUrl,
+          method: req.method,
+          reason: error.message,
+        });
+        return res.status(401).json({ error: true, message: error.message });
+      }
+
+      if (isJwtValidationError(error)) {
+        logger.warn("Refresh token inválido o expirado.", {
+          ip: req.ip,
+          path: req.originalUrl,
+          method: req.method,
+          ...getErrorMeta(error),
+        });
+        return res.status(401).json({ error: true, message: "Refresh token inválido o expirado." });
+      }
+
+      logger.error("Error interno durante refresh token.", {
         ip: req.ip,
         path: req.originalUrl,
         method: req.method,
+        ...getErrorMeta(error),
       });
-      return res.status(401).json({ error: true, message: "Refresh token inválido o expirado." });
+      return res
+        .status(500)
+        .json({ error: true, message: "Error interno durante refresh token." });
+    }
+  });
+
+  /**
+   * @openapi
+   * /api/auth/logout:
+   *   post:
+   *     summary: Revocar la sesión asociada a un refresh token.
+   *     tags:
+   *       - Auth
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             $ref: '#/components/schemas/LogoutRequest'
+   *     responses:
+   *       204:
+   *         description: Sesión revocada.
+   *       401:
+   *         description: Refresh token inválido o expirado.
+   */
+  router.post("/logout", async (req, res) => {
+    const { refreshToken } = req.body as { refreshToken?: string };
+    if (!refreshToken) {
+      return res.status(400).json({ error: true, message: "refreshToken requerido." });
+    }
+
+    try {
+      const verifiedPayload = jwt.verify(
+        refreshToken,
+        getRefreshTokenSecret(),
+        buildRefreshTokenVerifyOptions()
+      );
+      if (!isRefreshTokenPayload(verifiedPayload)) {
+        return res.status(401).json({ error: true, message: "Refresh token inválido." });
+      }
+
+      const payload = normalizeRefreshTokenPayload(verifiedPayload);
+      await revokeRefreshTokenService.execute(payload.jti);
+      return res.status(204).send();
+    } catch (error) {
+      if (error instanceof AuthError) {
+        logger.warn("Logout rechazado por refresh token inválido.", {
+          ip: req.ip,
+          path: req.originalUrl,
+          method: req.method,
+          reason: error.message,
+        });
+        return res.status(401).json({ error: true, message: error.message });
+      }
+
+      if (isJwtValidationError(error)) {
+        logger.warn("Refresh token inválido o expirado.", {
+          ip: req.ip,
+          path: req.originalUrl,
+          method: req.method,
+          ...getErrorMeta(error),
+        });
+        return res.status(401).json({ error: true, message: "Refresh token inválido o expirado." });
+      }
+
+      logger.error("Error interno durante logout.", {
+        ip: req.ip,
+        path: req.originalUrl,
+        method: req.method,
+        ...getErrorMeta(error),
+      });
+      return res.status(500).json({ error: true, message: "Error interno durante logout." });
     }
   });
 

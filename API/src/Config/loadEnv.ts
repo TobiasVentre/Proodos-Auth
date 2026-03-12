@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
+import { validateJwtConfiguration } from "@proodos/api/Security/jwt";
 
 function findRepoRoot(startDir: string): string {
   let dir = startDir;
@@ -73,6 +74,8 @@ export function loadEnv() {
     "LDAP_TARGETS",
     "JWT_SECRET",
     "JWT_REFRESH_SECRET",
+    "JWT_ISSUER",
+    "JWT_AUDIENCE",
   ];
   const missing = required.filter((k) => !process.env[k] || String(process.env[k]).trim() === "");
   if (missing.length) {
@@ -80,4 +83,5 @@ export function loadEnv() {
   }
 
   validateLdapTargets(process.env.LDAP_TARGETS as string);
+  validateJwtConfiguration();
 }
