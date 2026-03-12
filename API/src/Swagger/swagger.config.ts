@@ -1,9 +1,11 @@
 import swaggerUi from "swagger-ui-express";
 import swaggerJsdoc from "swagger-jsdoc";
 import { Express } from "express";
+import path from "path";
 import { authSchemas, roleSchemas } from "./schemas";
 
 export function setupSwagger(app: Express): void {
+  const controllersGlob = path.join(__dirname, "..", "Controllers", "*.{js,ts}");
   const options = {
     definition: {
       openapi: "3.0.0",
@@ -17,9 +19,16 @@ export function setupSwagger(app: Express): void {
           ...authSchemas,
           ...roleSchemas,
         },
+        securitySchemes: {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "JWT",
+          },
+        },
       },
     },
-    apis: ["./src/Controllers/*.ts"],
+    apis: [controllersGlob],
   };
 
   const specs = swaggerJsdoc(options);

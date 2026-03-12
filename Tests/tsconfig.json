@@ -1,9 +1,21 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "rootDir": "src",
+    "rootDir": "..",
     "outDir": "dist",
-    "types": ["jest", "node"]
+    "baseUrl": "..",
+    "paths": {
+      "@proodos/domain/*": ["Domain/src/*"],
+      "@proodos/application/*": ["Application/src/*"],
+      "@proodos/infrastructure/*": ["Infrastructure/src/*"],
+      "@proodos/api/*": ["API/src/*"]
+    },
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts"
+  ]
 }

@@ -5,10 +5,14 @@
     "Domain",
     "Application",
     "Infrastructure",
-    "API"
+    "API",
+    "Tests"
   ],
   "scripts": {
     "build": "npm run build --workspace Domain && npm run build --workspace Application && npm run build --workspace Infrastructure && npm run build --workspace API",
-    "start": "npm run start --workspace API"
+    "start": "npm run start --workspace API",
+    "tests:build": "npm run build --workspace @proodos/tests",
+    "tests:test": "npm run test --workspace @proodos/tests",
+    "tests:coverage": "npm run test:coverage --workspace @proodos/tests"
   }
 }

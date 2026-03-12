@@ -5,15 +5,16 @@
     "moduleResolution": "NodeNext",
     "baseUrl": ".",
     "paths": {
-      "@proodos/domain/*": ["Domain/src/*"],
-      "@proodos/application/*": ["Application/src/*"],
-      "@proodos/infrastructure/*": ["Infrastructure/src/*"],
-      "@proodos/api/*": ["API/src/*"]
+      "@proodos/domain/*": ["Domain/dist/*"],
+      "@proodos/application/*": ["Application/dist/*"],
+      "@proodos/infrastructure/*": ["Infrastructure/dist/*"],
+      "@proodos/api/*": ["API/dist/*"]
     },
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "declaration": true
   }
 }
 

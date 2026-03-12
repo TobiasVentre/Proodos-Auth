@@ -3,7 +3,14 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "moduleResolution": "NodeNext"
+    "moduleResolution": "NodeNext",
+    "baseUrl": "..",
+    "paths": {
+      "@proodos/api/*": ["API/src/*"],
+      "@proodos/application/*": ["Application/dist/*"],
+      "@proodos/infrastructure/*": ["Infrastructure/dist/*"],
+      "@proodos/domain/*": ["Domain/dist/*"]
+    }
   },
   "include": ["src/**/*"]
 }

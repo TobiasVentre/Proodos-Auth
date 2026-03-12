@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
+import { validateJwtConfiguration } from "@proodos/api/Security/jwt";
 
 function findRepoRoot(startDir: string): string {
   let dir = startDir;
@@ -15,6 +16,38 @@ function findRepoRoot(startDir: string): string {
     if (parent === dir) return startDir;
     dir = parent;
   }
+}
+
+function validateLdapTargets(rawTargets: string) {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(rawTargets);
+  } catch {
+    throw new Error("[ENV] LDAP_TARGETS tiene formato inválido. Debe ser un JSON válido.");
+  }
+
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error("[ENV] LDAP_TARGETS debe ser un array con al menos un dominio LDAP.");
+  }
+
+  parsed.forEach((target, index) => {
+    if (!target || typeof target !== "object") {
+      throw new Error(`[ENV] LDAP_TARGETS[${index}] debe ser un objeto.`);
+    }
+
+    const { name, url, upnSuffix } = target as {
+      name?: string;
+      url?: string;
+      upnSuffix?: string;
+    };
+
+    if (!name?.trim() || !url?.trim() || !upnSuffix?.trim()) {
+      throw new Error(
+        `[ENV] LDAP_TARGETS[${index}] incompleto. Requiere 'name', 'url' y 'upnSuffix'.`
+      );
+    }
+  });
 }
 
 export function loadEnv() {
@@ -38,12 +71,17 @@ export function loadEnv() {
     "DB_NAME",
     "DB_USER",
     "DB_PASSWORD",
-    "LDAP_URL",
+    "LDAP_TARGETS",
     "JWT_SECRET",
     "JWT_REFRESH_SECRET",
+    "JWT_ISSUER",
+    "JWT_AUDIENCE",
   ];
   const missing = required.filter((k) => !process.env[k] || String(process.env[k]).trim() === "");
   if (missing.length) {
     throw new Error(`[ENV] Faltan variables: ${missing.join(", ")} (archivo: ${envPath})`);
   }
+
+  validateLdapTargets(process.env.LDAP_TARGETS as string);
+  validateJwtConfiguration();
 }

@@ -8,8 +8,22 @@ export const buildRoutes = async (logger: ILogger) => {
   const routes = Router();
   const useCases = await buildApiUseCases(logger);
 
-  routes.use("/auth", createAuthController({ loginService: useCases.auth.login }));
-  routes.use("/roles", createRolesController({ rolesService: useCases.roles }));
+  routes.use(
+    "/auth",
+    createAuthController({
+      loginService: useCases.auth.login,
+      refreshTokenService: useCases.auth.refresh,
+      revokeRefreshTokenService: useCases.auth.revokeRefreshToken,
+      logger,
+    })
+  );
+  routes.use(
+    "/roles",
+    createRolesController({
+      roleCommands: useCases.roles.commands,
+      roleQueries: useCases.roles.queries,
+    })
+  );
 
   return routes;
 };

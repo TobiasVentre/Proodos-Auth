@@ -12,6 +12,19 @@ const logger = new ConsoleLogger();
 
 app.use(express.json());
 app.use((req, res, next) => {
+  const startedAt = Date.now();
+  res.on("finish", () => {
+    logger.info("HTTP request", {
+      method: req.method,
+      path: req.originalUrl,
+      statusCode: res.statusCode,
+      durationMs: Date.now() - startedAt,
+      ip: req.ip,
+    });
+  });
+  next();
+});
+app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");

@@ -1,4 +1,13 @@
 {
   "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": "..",
+    "paths": {
+      "@proodos/application/*": ["Application/src/*"],
+      "@proodos/domain/*": ["Domain/dist/*"]
+    }
+  },
   "include": ["src"]
 }

@@ -10,6 +10,11 @@ export class SequelizeUserRoleRepository implements UserRoleRepository {
     return record.toJSON() as UserRole;
   }
 
+  async hasRole(username: string, roleId: number): Promise<boolean> {
+    const count = await UserRoleModel.count({ where: { username, roleId } });
+    return count > 0;
+  }
+
   async getRolesByUsername(username: string): Promise<Role[]> {
     const records = await UserRoleModel.findAll({
       where: { username },

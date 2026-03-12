@@ -29,5 +29,11 @@ UserRoleModel.init(
   {
     sequelize,
     tableName: "user_roles",
+    indexes: [
+      {
+        unique: true,
+        fields: ["username", "roleId"],
+      },
+    ],
   }
 );

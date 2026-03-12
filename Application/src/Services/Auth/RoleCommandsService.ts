@@ -1,0 +1,37 @@
+import { Role } from "@proodos/domain/Entities/Role";
+import { UserRole } from "@proodos/domain/Entities/UserRole";
+import { RoleRepository } from "@proodos/application/Interfaces/IRoleRepository";
+import { UserRoleRepository } from "@proodos/application/Interfaces/IUserRoleRepository";
+import { RoleCommands } from "@proodos/application/Ports/Auth/RoleCommands";
+
+export class RoleCommandsService implements RoleCommands {
+  constructor(
+    private readonly roleRepository: RoleRepository,
+    private readonly userRoleRepository: UserRoleRepository
+  ) {}
+
+  async createRole(name: string, description?: string | null): Promise<Role> {
+    if (!name) {
+      throw new Error("El nombre del rol es obligatorio.");
+    }
+
+    return this.roleRepository.create(name, description);
+  }
+
+  async assignRole(username: string, roleId: number): Promise<UserRole> {
+    if (!username) {
+      throw new Error("El usuario es obligatorio.");
+    }
+
+    if (!roleId) {
+      throw new Error("El rol es obligatorio.");
+    }
+
+    const alreadyAssigned = await this.userRoleRepository.hasRole(username, roleId);
+    if (alreadyAssigned) {
+      throw new Error("El usuario ya tiene asignado este rol.");
+    }
+
+    return this.userRoleRepository.assign(username, roleId);
+  }
+}
